@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Add a new layer to a slot</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        .filter-group {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 3px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+            font: 12px Arial, sans-serif;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 3px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+            font: 12px Arial, sans-serif;
+        }
+
+        .legend div {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .legend span {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <nav id="filter-group" class="filter-group">
+        <h4>ชั้นข้อมูลคุณภาพลุ่มน้ำ</h4>
+    </nav>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYXNhbWFwb3Juc3d1IiwiYSI6ImNtNnRmN3c5MzAyOWkycXE0a2k4b3NreWkifQ.ePw8n68geWiHUR4G1P8Y4A';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            // You can add layers to the predetermined slots within the Standard style basemap.
+            style: 'mapbox://styles/mapbox/standard',
+            center: [100.134888, 13.886079],
+            zoom: 5
+            //maxZoom: 10
+        });
+
+        const geojsonFiles = [
+            { url: "https://geojson-v1.s3.ap-southeast-2.amazonaws.com/ver_1.geojson", id: "layer-1", name: "คุณภาพลุ่มน้ำ (1A,1AR,1B,1BR)", color: "#FF5733" },
+            { url: "https://geojson-v1.s3.ap-southeast-2.amazonaws.com/ver_2.geojson", id: "layer-2", name: "คุณภาพลุ่มน้ำ (2,2A,2B)", color: "#33FF57" },
+            { url: "https://geojson-v1.s3.ap-southeast-2.amazonaws.com/ver_3.geojson", id: "layer-3", name: "คุณภาพลุ่มน้ำ (3,3A,3B)", color: "#3357FF" },
+            { url: "https://geojson-v1.s3.ap-southeast-2.amazonaws.com/ver_4.geojson", id: "layer-4", name: "คุณภาพลุ่มน้ำ (4,4A,4B)", color: "#FF33A6" },
+            { url: "https://geojson-v1.s3.ap-southeast-2.amazonaws.com/ver_5.geojson", id: "layer-5", name: "คุณภาพลุ่มน้ำ (5A,5B)", color: "#F1C40F" }
+        ];
+
+        const filterGroup = document.getElementById('filter-group');
+        const legend = document.getElementById('legend');
+
+
+        map.on('style.load', () => {
+            geojsonFiles.forEach(file => {
+                fetch(file.url)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Add source for each GeoJSON
+                        map.addSource(file.id, { type: 'geojson', data });
+
+                        // Add layer for each GeoJSON
+                        map.addLayer({
+                            'id': file.id,
+                            'type': 'fill',
+                            'source': file.id,
+                            'paint': {
+                                'fill-color': file.color,
+                                'fill-opacity': 0.5
+                            }
+                            //'layout': { 'visibility': 'none' }
+                        });
+
+                        // Create checkbox to toggle layer visibility
+                        const input = document.createElement('input');
+                        input.type = 'checkbox';
+                        input.id = file.id;
+                        input.checked = true;
+
+                        const label = document.createElement('label');
+                        label.setAttribute('for', file.id);
+                        label.textContent = file.name;
+
+                        filterGroup.appendChild(input);
+                        filterGroup.appendChild(label);
+                        filterGroup.appendChild(document.createElement("br"));
+
+                        // Toggle visibility on checkbox change
+                        input.addEventListener('change', (e) => {
+                            map.setLayoutProperty(file.id, 'visibility', e.target.checked ? 'visible' : 'none');
+                        });
+                    })
+                    .catch(error => console.error(`🚨 Error loading ${file.id}:`, error));
+            });
+            // ✅ Add Scale Control
+            map.addControl(new mapboxgl.ScaleControl({ maxWidth: 200, unit: 'metric' }), 'bottom-left');
+        });
+    </script>
+
+</body>
+
+</html>
