@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Add a new layer to a slot</title>
+    <title>WSC</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.js"></script>
@@ -59,6 +59,7 @@
 
 <body>
     <div id="map"></div>
+    <div id="legend" class="legend"></div>
     <nav id="filter-group" class="filter-group">
         <h4>ชั้นข้อมูลคุณภาพลุ่มน้ำ</h4>
     </nav>
@@ -74,18 +75,23 @@
         });
 
         const geojsonFiles = [
-            { url: "https://geojson-v1.s3.ap-southeast-2.amazonaws.com/ver_1.geojson", id: "layer-1", name: "คุณภาพลุ่มน้ำ (1A,1AR,1B,1BR)", color: "#FF5733" },
-            { url: "https://geojson-v1.s3.ap-southeast-2.amazonaws.com/ver_2.geojson", id: "layer-2", name: "คุณภาพลุ่มน้ำ (2,2A,2B)", color: "#33FF57" },
-            { url: "https://geojson-v1.s3.ap-southeast-2.amazonaws.com/ver_3.geojson", id: "layer-3", name: "คุณภาพลุ่มน้ำ (3,3A,3B)", color: "#3357FF" },
-            { url: "https://geojson-v1.s3.ap-southeast-2.amazonaws.com/ver_4.geojson", id: "layer-4", name: "คุณภาพลุ่มน้ำ (4,4A,4B)", color: "#FF33A6" },
-            { url: "https://geojson-v1.s3.ap-southeast-2.amazonaws.com/ver_5.geojson", id: "layer-5", name: "คุณภาพลุ่มน้ำ (5A,5B)", color: "#F1C40F" }
+            { url: "https://geojson-v1.s3.ap-southeast-2.amazonaws.com/ver_1.geojson", id: "layer-1", name: "1A,1AR,1B,1BR", color: "#FF5733" },
+            { url: "https://geojson-v1.s3.ap-southeast-2.amazonaws.com/ver_2.geojson", id: "layer-2", name: "2,2A,2B", color: "#33FF57" },
+            { url: "https://geojson-v1.s3.ap-southeast-2.amazonaws.com/ver_3.geojson", id: "layer-3", name: "3,3A,3B", color: "#3357FF" },
+            { url: "https://geojson-v1.s3.ap-southeast-2.amazonaws.com/ver_4.geojson", id: "layer-4", name: "4,4A,4B", color: "#FF33A6" },
+            { url: "https://geojson-v1.s3.ap-southeast-2.amazonaws.com/ver_5.geojson", id: "layer-5", name: "5A,5B", color: "#F1C40F" }
         ];
 
+        //geojsonFiles.sort((a, b) => a.url.localeCompare(b.url))
         const filterGroup = document.getElementById('filter-group');
         const legend = document.getElementById('legend');
 
 
         map.on('style.load', () => {
+            let checkboxes = []; // Temporary array to store checkboxes
+
+            geojsonFiles.sort((a, b) => a.url.localeCompare(b.url));
+
             geojsonFiles.forEach(file => {
                 fetch(file.url)
                     .then(response => response.json())
@@ -104,8 +110,31 @@
                             }
                             //'layout': { 'visibility': 'none' }
                         });
+                        // ✅ Add Popup on Click
+                        map.on('click', file.id, (e) => {
+                            if (e.features.length > 0) {
+                                const feature = e.features[0].properties; // ✅ Extract properties
+                                const verValue = feature.ver ? feature.ver : "N/A"; // ✅ Ensure 'ver' exists
 
-                        // Create checkbox to toggle layer visibility
+                                new mapboxgl.Popup()
+                                    .setLngLat(e.lngLat)
+                                    .setHTML(
+                                        `<b>Version:</b> ${verValue}` // ✅ Corrected variable name
+                                    )
+                                    .addTo(map);
+                            }
+                        });
+
+                        // ✅ Change cursor to pointer on hover
+                        map.on('mouseenter', file.id, () => {
+                            map.getCanvas().style.cursor = 'pointer';
+                        });
+                        map.on('mouseleave', file.id, () => {
+                            map.getCanvas().style.cursor = '';
+                        });
+
+
+                        // ✅ Ensure checkboxes follow URL order
                         const input = document.createElement('input');
                         input.type = 'checkbox';
                         input.id = file.id;
@@ -115,19 +144,52 @@
                         label.setAttribute('for', file.id);
                         label.textContent = file.name;
 
-                        filterGroup.appendChild(input);
-                        filterGroup.appendChild(label);
-                        filterGroup.appendChild(document.createElement("br"));
+                        checkboxes.push({ input, label });
 
-                        // Toggle visibility on checkbox change
+                        // ✅ Toggle visibility when clicking checkboxes
                         input.addEventListener('change', (e) => {
-                            map.setLayoutProperty(file.id, 'visibility', e.target.checked ? 'visible' : 'none');
+                            const visibility = e.target.checked ? 'visible' : 'none';
+                            map.setLayoutProperty(file.id, 'visibility', visibility);
                         });
+
+                        updateLegend();
                     })
                     .catch(error => console.error(`🚨 Error loading ${file.id}:`, error));
             });
+
+            // ✅ Ensure checkboxes are added in the correct order after all layers are loaded
+            setTimeout(() => {
+                checkboxes.reverse().forEach(({ input, label }) => { // ✅ Reverse order before adding
+                    filterGroup.appendChild(input);
+                    filterGroup.appendChild(label);
+                    filterGroup.appendChild(document.createElement("br"));
+                });
+            }, 1000);
+
+            // Function to dynamically update the legend
+            function updateLegend() {
+                const legend = document.getElementById("legend");
+                legend.innerHTML = "<h4>คุณภาพลุ่มน้ำ</h4>"; // Title in Thai
+
+                geojsonFiles.forEach(layer => {
+                    // Ensure the legend only contains layers that exist on the map
+                    if (map.getLayer(layer.id)) {
+                        const legendItem = document.createElement("div");
+                        const colorBox = document.createElement("span");
+                        colorBox.style.backgroundColor = layer.color;
+                        colorBox.style.width = "15px";
+                        colorBox.style.height = "15px";
+                        colorBox.style.display = "inline-block";
+                        colorBox.style.marginRight = "5px";
+
+                        legendItem.appendChild(colorBox);
+                        legendItem.appendChild(document.createTextNode(layer.name));
+                        legend.appendChild(legendItem);
+                    }
+                });
+            }
             // ✅ Add Scale Control
-            map.addControl(new mapboxgl.ScaleControl({ maxWidth: 200, unit: 'metric' }), 'bottom-left');
+            map.addControl(new mapboxgl.ScaleControl({ maxWidth: 200, unit: 'metric' }), 'bottom-right');
         });
     </script>
 
